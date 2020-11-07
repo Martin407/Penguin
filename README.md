@@ -1,2 +1,2 @@
 # Penguin
-Toolkit for Linux security
+Toolkit for network security.
