@@ -1,0 +1,116 @@
+- name: Block specific IP
+  iptables:
+    chain: INPUT
+    source: 8.8.8.8
+    jump: DROP
+  become: yes
+
+- name: Forward port 80 to 8600
+  iptables:
+    table: nat
+    chain: PREROUTING
+    in_interface: eth0
+    protocol: tcp
+    match: tcp
+    destination_port: 80
+    jump: REDIRECT
+    to_ports: 8600
+    comment: Redirect web traffic to port 8600
+  become: yes
+
+- name: Allow related and established connections
+  iptables:
+    chain: INPUT
+    ctstate: ESTABLISHED,RELATED
+    jump: ACCEPT
+  become: yes
+
+- name: Allow new incoming SYN packets on TCP port 22 (SSH)
+  iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: 22
+    ctstate: NEW
+    syn: match
+    jump: ACCEPT
+    comment: Accept new SSH connections.
+
+- name: Match on IP ranges
+  iptables:
+    chain: FORWARD
+    src_range: 192.168.1.100-192.168.1.199
+    dst_range: 10.0.0.1-10.0.0.50
+    jump: ACCEPT
+
+- name: Tag all outbound tcp packets with DSCP mark 8
+  iptables:
+    chain: OUTPUT
+    jump: DSCP
+    table: mangle
+    set_dscp_mark: 8
+    protocol: tcp
+
+- name: Tag all outbound tcp packets with DSCP DiffServ class CS1
+  iptables:
+    chain: OUTPUT
+    jump: DSCP
+    table: mangle
+    set_dscp_mark_class: CS1
+    protocol: tcp
+
+- name: Insert a rule on line 5
+  iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: 8080
+    jump: ACCEPT
+    action: insert
+    rule_num: 5
+
+- name: Set the policy for the INPUT chain to DROP
+  iptables:
+    chain: INPUT
+    policy: DROP
+
+- name: Reject tcp with tcp-reset
+  iptables:
+    chain: INPUT
+    protocol: tcp
+    reject_with: tcp-reset
+    ip_version: ipv4
+
+- name: Set tcp flags
+  iptables:
+    chain: OUTPUT
+    jump: DROP
+    protocol: tcp
+    tcp_flags:
+      flags: ALL
+      flags_set:
+        - ACK
+        - RST
+        - SYN
+        - FIN
+
+- name: Iptables flush filter
+  iptables:
+    chain: "{{ item }}"
+    flush: yes
+  with_items:  [ 'INPUT', 'FORWARD', 'OUTPUT' ]
+
+- name: Iptables flush nat
+  iptables:
+    table: nat
+    chain: '{{ item }}'
+    flush: yes
+  with_items: [ 'INPUT', 'OUTPUT', 'PREROUTING', 'POSTROUTING' ]
+
+- name: Log packets arriving into an user-defined chain
+  iptables:
+    chain: LOGGING
+    action: append
+    state: present
+    limit: 2/second
+    limit_burst: 20
+    log_prefix: "IPTABLES:INFO: "
+    log_level: info

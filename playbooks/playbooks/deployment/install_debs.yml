@@ -1,0 +1,19 @@
+---
+- hosts: all
+  vars:
+    DEB: 
+      - osquery_4.5.1_1.linux.amd64.deb
+      - wazuh-agent_3.9.5-1_amd64.deb
+  tasks:
+  - name: Make Directory
+    file:
+      path: /var/ansible
+      state: directory
+  - name: Copy files to remote system
+    copy:
+      src: "{{ item }}"
+      dest: /var/ansible/
+    loop: "{{ DEB }}"
+  - name: Install the files in that path
+    command: "dpkg -i /var/ansible/{{ item }}"
+    loop: "{{ DEB }}"

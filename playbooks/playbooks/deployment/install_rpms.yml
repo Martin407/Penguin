@@ -1,0 +1,23 @@
+---
+- name: Copy and install rpms
+  hosts: all
+
+  vars:
+    RPM: 
+      - gskcrypt64-8.0.50.86.linux.ppcle.rpm 
+      - gskssl64-8.0.50.86.linux.ppcle.rpm 
+      - TIVsm-API64.ppc64le.rpm 
+      - TIVsm-BA.ppc64le.rpm
+
+  tasks:
+
+    - name: "Transfer Files"
+      copy:
+        src: "/root/ansible_playbooks/{{ item }}"
+        dest: /root/
+      loop: "{{ RPM }}"
+      register: copied
+
+    - name: "Install RPMs from local copied files"
+      yum:
+        name: "{{ copied | json_query('results[?!failed].dest[]') }}"

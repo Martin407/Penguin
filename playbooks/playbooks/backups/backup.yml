@@ -1,0 +1,23 @@
+---
+- hosts: all
+  remote_user: root
+  strategy: free
+  tasks:
+  - name: Creates directory
+    file:
+      path: /backup
+      state: directory
+  - name: Compress directory /etc to /backup/etc.tgz
+    archive:
+      path: /etc
+      dest: /backup/etc.tgz
+    ignore_errors: yes
+  - name: Compress directory /var/www to /backup/var-www.tgz
+    archive:
+      path: /var/www
+      dest: /backup/var-www.tgz
+  - shell: find /backup/ -type f | cut -d'/' -f3
+    register: files_to_copy
+  - fetch: src=/backup/{{item}} dest=/backup/{{inventory_hostname}}/{{ansible_date_time.time}}/ flat=1
+    with_items: "{{files_to_copy.stdout_lines}}"
+  - fetch: src=/var/log/osquery/osqueryd.results.log dest=/backup/{{inventory_hostname}}/ flat=1

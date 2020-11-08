@@ -1,0 +1,14 @@
+- hosts: all
+  tasks:
+  - name: Disallow root SSH access
+    lineinfile: 
+      dest: /etc/ssh/sshd_config
+      regexp: "^PermitRootLogin"
+      line: "PermitRootLogin without-password"
+      state: present
+      validate: '/usr/sbin/sshd -d'
+    notify: Restart ssh
+  handlers:
+  - name: Restart ssh
+    service: name=ssh state=restarted
+

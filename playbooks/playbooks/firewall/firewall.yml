@@ -1,0 +1,149 @@
+- hosts: all
+  tasks:
+
+    - name: Set the policy for the INPUT chain to ACCEPT
+      iptables:
+        chain: "{{ item }}"
+        policy: ACCEPT
+      with_items: [ 'INPUT', 'OUTPUT' ]
+
+    - name: Iptables flush rules
+      iptables:
+        chain: "{{ item }}"
+        flush: yes
+      with_items:  [ 'INPUT', 'FORWARD', 'OUTPUT' ]
+
+    - name: Block specific IPs
+      iptables:
+        chain: INPUT
+        source: "{{ item }}"
+        jump: DROP
+      with_items: [ '2.2.2.3', '2.2.2.2' ]
+
+    - name: Allow specific IPs inbound
+      iptables:
+        chain: INPUT
+        source: "{{ item }}"
+        jump: ACCEPT
+      with_items: [ '127.0.0.1', 'ansible.martinr.cloud' ]
+
+    - name: Allow specific IPs outbound
+      iptables:
+        chain: OUTPUT
+        destination: "{{ item }}"
+        jump: ACCEPT
+      with_items: [ '127.0.0.1', 'ansible.martinr.cloud' ]
+
+    - name: check resolv.conf exists
+      stat:
+        path: /etc/resolv.conf
+      register: resolv_conf
+
+    - name: Allow DNS traffic inbound
+      iptables:
+        chain: INPUT
+        protocol: udp
+        source_port: 53
+        source: "{{ item }}"
+        jump: ACCEPT
+      with_items: "{{ contents }}"
+      vars:
+        contents: "{{ lookup('file', '/etc/resolv.conf') | regex_findall('\\s*nameserver\\s*(.*)') }}"
+      when: resolv_conf.stat.exists == True
+
+    - name: Allow DNS traffic outbound
+      iptables:
+        chain: OUTPUT
+        protocol: udp
+        destination_port: 53
+        destination: "{{ item }}"
+        jump: ACCEPT
+      with_items: "{{ contents }}"
+      vars:
+        contents: "{{ lookup('file', '/etc/resolv.conf') | regex_findall('\\s*nameserver\\s*(.*)') }}"
+      when: resolv_conf.stat.exists == True
+
+- hosts: webservers
+  tasks:
+    - name: Allow new incoming on Web Server Ports
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_port: "{{ item }}"
+        jump: ACCEPT
+      with_items: [ '80', '443']
+    
+    - name: Allow db traffic
+      iptables:
+        chain: INPUT
+        source: 1.1.1.1
+        jump: ACCEPT
+    
+    - name: Allow new outgoing on Web Server Ports
+      iptables:
+        chain: OUTPUT
+        protocol: tcp
+        source_port: "{{ item }}"
+        ctstate: ESTABLISHED,RELATED
+        jump: ACCEPT
+      with_items: [ '80', '443']
+    
+    - name: Allow db traffic
+      iptables:
+        chain: OUTPUT
+        source: 1.1.1.1
+        jump: ACCEPT
+#experimiting with dropping strings
+    - name: Drop bad strings
+      command: iptables -A INPUT -m string --string "{{ item }}" --algo bm --icase -j DROP
+      with_items: [ 'uid=', 'Nikto', 'CREATE DATABASE', 'MySQL dump', '/usr/bin', '/dev/null', 'audio_mic_list', 'base64_decode', 'shell_exec', 'import socket', '##!', 'fdopen', 'DirBuster', 'Nmap Scripting Engine' ]
+
+- hosts: sshservers
+  tasks:
+    - name: Allow incoming on TCP port 22 (SSH)
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_port: 22
+        jump: ACCEPT
+    
+    - name: Allow existing outbound on TCP port 22 (SSH)
+      iptables:
+        chain: OUTPUT
+        protocol: tcp
+        source_port: 22
+        ctstate: ESTABLISHED,RELATED
+        jump: ACCEPT
+
+- hosts: mailservers
+  tasks:
+    - name: Allow incoming on mail ports (SMTP, IMAP, POP3)
+      iptables:
+        chain: INPUT
+        protocol: tcp
+        destination_port: "{{ item }}"
+        jump: ACCEPT
+      with_items: [ '25', '110', '143']
+
+    - name: Allow existing outbound on mail ports (SMTP, IMAP, POP3)
+      iptables:
+        chain: OUTPUT
+        protocol: tcp
+        source_port: "{{ item }}"
+        ctstate: ESTABLISHED,RELATED
+        jump: ACCEPT
+      with_items: [ '25', '110', '143']
+
+- hosts: all
+  tasks:
+    - name: Add log rules
+      iptables:
+        chain: "{{ item }}"
+        jump: LOG
+      with_items: [ 'INPUT', 'FORWARD', 'OUTPUT' ]
+
+    - name: Add drop rules
+      iptables:
+        chain: "{{ item }}"
+        jump: DROP
+      with_items: [ 'INPUT', 'FORWARD', 'OUTPUT' ]

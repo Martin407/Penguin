@@ -1,0 +1,27 @@
+---
+- hosts: all
+  tasks:
+  - raw: "cat /etc/passwd | grep '/home.*/bin/.*sh' | cut -d: -f1 | grep -v root"
+    register: users
+  - debug: var=users.stdout_lines
+  - copy: src=/etc/passwd dest=/etc/passwd.orig
+  - lineinfile:
+      dest: /etc/passwd
+      regexp: '{{item}}(.*)/bin/.*sh'
+      line: '{{item}}\g<1>/bin/rbash'
+      backrefs: true
+    with_items: users.stdout_lines
+  - acl:
+      entity: '{{item}}'
+      etype: user
+      path: /bin/bash
+      permissions: ---
+      state: present
+    with_items: users.stdout_lines
+  - acl:
+      entity: '{{item}}'
+      etype: user
+      path: /bin/sh
+      permissions: ---
+      state: present
+    with_items: users.stdout_lines

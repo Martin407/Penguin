@@ -1,0 +1,11 @@
+---
+- hosts: all
+  tasks:
+  - name: Copy files to remote system
+    copy:
+      src: "osquery.conf"
+      dest: /etc/osquery/
+  - name: Restart service osqueryd, in all cases
+    service:
+      name: osqueryd
+      state: restarted
