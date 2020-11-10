@@ -1,0 +1,5 @@
+#For some reason the namespace module doesn't seem to be packaged with 2.9
+- hosts: all
+  tasks:
+    - name: Create a namespace named testing
+      command: ip netns add testing
