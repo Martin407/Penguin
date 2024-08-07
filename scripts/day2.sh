@@ -1,3 +1,12 @@
+#!/bin/bash
+
+read -p "Enter the password to set for all users: " -s pass
+# Change all local passwords to the same string
+for i in $(cut -d: -f1 /etc/shadow); do
+    echo -e "$pass\n$pass" | passwd $i
+done
+
+
 directories=("etc" "home" "usr" "opt" "root" "var/www" "lib" "bin" "sbin" "srv" "mnt" "snap")
 
 # Loop through each directory
